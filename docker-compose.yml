@@ -1,0 +1,71 @@
+services:
+  postgres-ngo:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ngo_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./ngo-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  postgres-donation:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: donation_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./donation-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+
+  ngo-service:
+    build: ./ngo-service
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      DATABASE_URL: "postgres://postgres:postgres@postgres-ngo:5432/ngo_db"
+    depends_on:
+      postgres-ngo:
+        condition: service_healthy
+
+  donation-service:
+    build: ./donation-service
+    ports:
+      - "8082:8082"
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres-donation:5432/donation_db?sslmode=disable"
+    depends_on:
+      postgres-donation:
+        condition: service_healthy
+
+  volunteer-service:
+    build: ./volunteer-service
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      AWS_REGION: "us-east-1"
+      AWS_DYNAMODB_TABLE: "SolidaryTechVolunteers"
+      DYNAMODB_ENDPOINT: "http://dynamodb-local:8000"
+    depends_on:
+      - dynamodb-local

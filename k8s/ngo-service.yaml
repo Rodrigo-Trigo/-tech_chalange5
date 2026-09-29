@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ngo-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ngo-service
+  template:
+    metadata:
+      labels:
+        app: ngo-service
+    spec:
+      containers:
+        - name: ngo-service
+          image: 636589322874.dkr.ecr.us-east-1.amazonaws.com/solidarytech/ngo-service:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: PORT
+              value: "8081"
+            - name: DATABASE_URL
+              value: "postgres://postgres:postgres123@solidarytech-ngo-db.c0hmbe2cva3w.us-east-1.rds.amazonaws.com:5432/ngo_db"
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ngo-service
+spec:
+  type: NodePort
+  selector:
+    app: ngo-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
